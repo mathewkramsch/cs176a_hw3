@@ -23,12 +23,6 @@
  * 
  */
 
-/* TODO
- * implement wait 1 sec btwn each ping
- * implement drop packet error if RTT > 1sec 
- */
-
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -216,7 +210,7 @@ int main(int argc, char *argv[]) {
 		fd.fd = sock;
 		fd.events = POLLIN;
 		res = poll(&fd,1,1000);  // 1000 ms timeout
-		if (res == 0) printf("timeout\n");
+		if (res == 0) printf("Request timeout for seq#=%i\n", seq_num);
 		else if (res == -1) printf("error\n");	
 		else {
 			recvfrom(sock,buffer,256,0,(struct sockaddr *)&from, &length);
