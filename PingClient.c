@@ -153,7 +153,7 @@ double getMin(double arr[], int len) {
 } double getAvg(double arr[], int len) {
 	double avg = arr[0];
 	for(int i=0; i<len; i++) avg += arr[i];
-	return avg/len;
+	return avg/len+1;
 }
 
 void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd, const char *hostname) {
@@ -166,12 +166,14 @@ void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd, 
 	float percentLoss = numTrnsmtd-numRcvd;
 	percentLoss /= numTrnsmtd;
 	percentLoss *= 100;
-	printf("%.0f%% packet loss ", percentLoss);
-	printf("rtt min/avg/max = ");
-	printf("%.3f ", min);
-	printf("%.3f ", avg);
-	printf("%.3f ", max);
-	printf("ms\n");
+	printf("%.0f%% packet loss", percentLoss);
+	if (percentLoss < 100) {
+		printf(" rtt min/avg/max = ");
+		printf("%.3f ", min);
+		printf("%.3f ", avg);
+		printf("%.3f ", max);
+		printf("ms\n");
+	} else printf("\n");
 }
 
 int main(int argc, char *argv[]) {
