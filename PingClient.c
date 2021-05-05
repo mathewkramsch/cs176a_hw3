@@ -162,15 +162,15 @@ double getMin(double arr[], int len) {
 	return avg/len;
 }
 
-void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd) {
+void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd, const char *hostname) {
 	double min = getMin(RTTarr, RTTarr_length);
 	double max = getMax(RTTarr, RTTarr_length);
 	double avg = getAvg(RTTarr, RTTarr_length);
-	printf("--- ping statistics ---\n");
+	printf("--- %s ping statistics ---\n", hostname);
 	printf("%i packets transmitted, ",numTrnsmtd);
 	printf("%i received, ",numRcvd);
 	float percentLoss = ((1-numRcvd)/numTrnsmtd)*100;
-	printf("%.1f%% packet loss ", percentLoss);
+	printf("%.0f%% packet loss ", percentLoss);
 	printf("rtt min/avg/max = ");
 	printf("%.3f ", min);
 	printf("%.3f ", avg);
@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
 		printf("%s",responseMssg(buffer, argv[1], end.tv_sec, end.tv_usec, RTTarr+RTTarr_length++));
 		free(newBuffer);
 	}
-	printStats(RTTarr, RTTarr_length, numTrnsmtd, numRcvd);
+	printStats(RTTarr, RTTarr_length, numTrnsmtd, numRcvd, argv[1]);
 	
 	// CLOSE THE SOCKET
 	close(sock);
