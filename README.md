@@ -5,7 +5,7 @@
 
 This program is used to simulate a Ping message. The client sends 10 ping messages to a server and the sever echoes back the message. The server will not send back all ten messages and will randomly choose which ones to send back. This simulates packet loss.
 
-
+---
 ## Usage 
 ### Client Input/Output:
 **Input:**  <br>
@@ -28,7 +28,7 @@ PING received from machine_name: seq#= 5 time=62 ms
 10 packets transmitted, 8 received, 20% packet loss rtt min/avg/max = 50 62 88 ms
 csil-machine2>
 ```
-
+---
 ### Server Input:
 ```
 python UDPingServer.py
