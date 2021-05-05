@@ -151,9 +151,11 @@ double getMin(double arr[], int len) {
 		if (arr[i] > max) max = arr[i];
 	return max;
 } double getAvg(double arr[], int len) {
-	double avg = arr[0];
+	double avg = 0;
 	for(int i=0; i<len; i++) avg += arr[i];
-	return avg/(len+1);
+	printf("length: %i\n", len);
+	printf("total: %f\n", avg);
+	return avg/len;
 }
 
 void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd, const char *hostname) {
