@@ -24,7 +24,6 @@
  */
 
 /* TODO
- * implement min/max/avg calculations
  * implement wait 1 sec btwn each ping
  * implement drop packet error if RTT > 1sec 
  */
@@ -42,6 +41,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdbool.h>
+#include <poll.h>
 
 char* getPingMssg(int i, int time_sec, int time_ms) {
 // PRECONDITION: i is the sequence number of the ping segment
@@ -169,7 +169,9 @@ void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd, 
 	printf("--- %s ping statistics ---\n", hostname);
 	printf("%i packets transmitted, ",numTrnsmtd);
 	printf("%i received, ",numRcvd);
-	float percentLoss = ((1-numRcvd)/numTrnsmtd)*100;
+	float percentLoss = numTrnsmtd-numRcvd;
+	percentLoss /= numTrnsmtd;
+	percentLoss *= 100;
 	printf("%.0f%% packet loss ", percentLoss);
 	printf("rtt min/avg/max = ");
 	printf("%.3f ", min);
@@ -192,10 +194,13 @@ int main(int argc, char *argv[]) {
 	server.sin_port = htons(atoi(argv[2]));
 	length=sizeof(struct sockaddr_in);
 
-	int RTTarr_length = 0;
+	// utility variables
 	double RTTarr[10];  // int array to hold RTTs
-	int numTrnsmtd=0;
-	int	numRcvd=0;
+	int RTTarr_length = 0;  // length of RTRarr
+	int numTrnsmtd=0;  // counts number of packets transmitted
+	int	numRcvd=0;  // counts number of packets received
+	struct pollfd fd;  // timer
+	int res;
 
 	for (int seq_num=1; seq_num<=10; seq_num++) {
 		char *newBuffer = calloc(256, sizeof(char));
@@ -205,11 +210,21 @@ int main(int argc, char *argv[]) {
 		newBuffer = getPingMssg(seq_num,current_time.tv_sec,current_time.tv_usec);
 		sendto(sock,newBuffer,strlen(newBuffer),0,(const struct sockaddr *)&server,length);
 		numTrnsmtd++;
-		recvfrom(sock,buffer,256,0,(struct sockaddr *)&from, &length);  // read from socket
-		numRcvd++;
-		gettimeofday(&end, NULL);
-		printf("%s",responseMssg(buffer, argv[1], end.tv_sec, end.tv_usec, RTTarr+RTTarr_length++));
 		free(newBuffer);
+
+		// timeout shit
+		fd.fd = sock;
+		fd.events = POLLIN;
+		res = poll(&fd,1,1000);  // 1000 ms timeout
+		if (res == 0) printf("timeout\n");
+		else if (res == -1) printf("error\n");	
+		else {
+			recvfrom(sock,buffer,256,0,(struct sockaddr *)&from, &length);
+			numRcvd++;
+			gettimeofday(&end, NULL);
+			printf("%s",responseMssg(buffer, argv[1], end.tv_sec, end.tv_usec, RTTarr+RTTarr_length++));
+			res = poll(&fd,1,1000);  // 1000 ms timeout
+		}
 	}
 	printStats(RTTarr, RTTarr_length, numTrnsmtd, numRcvd, argv[1]);
 	

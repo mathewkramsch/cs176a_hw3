@@ -12,7 +12,7 @@ serverSocket.bind(('', 12000))
 while True:
     rand = random.randint(0, 10) 
     message, address = serverSocket.recvfrom(1024)  # receive client packet w/ its ip addy
-    #if rand < 4:  # random lost packet
-     #   continue
+    if rand < 4:  # random lost packet
+        continue
     #print(message)
     serverSocket.sendto(message, address)  # server responds otherwise
