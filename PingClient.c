@@ -1,28 +1,5 @@
 // PingClient.c
 
-/* CLIENT CODE:
- * 10 times:
- * 		send ping request to server (PING seq_num time)
- * 		if (time waiting for reply > 1 second):
- * 			assume its packet || server's reply is lost
- * 			output got_response_mssg (just prints to terminal, not socket)
- * 		else:
- * 			output no_response_mssg
- * output ping_stats
- * 
- * CLIENT MESSAGE:
- * 	PING seq_num time
- *		seq_num: starts at 1, progresses to 10 for successive ping mssg
- *		time: when the client sends the message
- *
- * CLIENT OUTPUT MESSAGES:
- * got_response_mssg = "PING received from machine_name: seq#=X time=Y ms"
- * 			X is seq # of received packet
- * 			Y is RTT in ms
- * no_response_mssg = "Request timeout for seq#=X"
- * 
- */
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -105,10 +82,8 @@ char* getRTT(const char *buffer, int offset, int time_sec, int time_ms) {
 char* responseMssg(const char *buffer, const char *hostname, int time_sec, int time_ms, double *RTTarr_at_i) {
 // PRECONDITION: buffer contains the Ping message: PING X Y\n, where X=seq_num, Y=RTT
 // 		hostname is the name of the host passed through argv[1]
-// POSTCONDITION: returns the client output message when ping received
+// POSTCONDITION: returns the client output message when ping received, adds the RTT to RTTarr
 // 		"PING received from machine_name: seq#=X time=Y ms\n"
-// 		if RTT > 1 sec, prints timeout mssg
-//		adds the RTT to RTTarr
 	int offset = 0;  // if the sequence number is 10 (2 digits)
 	if (buffer[6]=='0') offset++;
 	char *mssg = calloc(256, sizeof(char));
@@ -123,20 +98,13 @@ char* responseMssg(const char *buffer, const char *hostname, int time_sec, int t
 	strcat(RTT, getRTT(buffer,offset,time_sec,time_ms));
 	*RTTarr_at_i = strtod(RTT, &pEnd);
 
-	// if RTT > 1 sec, getRTT returns -1, print error message
-	if (!strcmp(RTT,"-1")) {  // strcmp() returns 0(false) if RTT=="-1"
-		strcat(mssg, "Request timeout for seq#=");
-		strncat(mssg, seq_num, 1+offset);
-		strcat(mssg, "\n");
-	} else {  // if !timeout, print PING received ...
-		strcat(mssg, "PING received from ");
-		strcat(mssg, hostname);
-		strcat(mssg, ": seq#=");
-		strncat(mssg, seq_num, 1+offset);
-		strcat(mssg, " time=");
-		strncat(mssg, RTT, strlen(RTT));
-		strcat(mssg, " ms\n");
-	}
+	strcat(mssg, "PING received from ");
+	strcat(mssg, hostname);
+	strcat(mssg, ": seq#=");
+	strncat(mssg, seq_num, 1+offset);
+	strcat(mssg, " time=");
+	strncat(mssg, RTT, strlen(RTT));
+	strcat(mssg, " ms\n");
 	return mssg;
 }
 
@@ -159,6 +127,7 @@ double getMin(double arr[], int len) {
 }
 
 void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd, const char *hostname) {
+// POSTCONDITION: prints the ping statistics of the RTTs
 	double min = getMin(RTTarr, RTTarr_length);
 	double max = getMax(RTTarr, RTTarr_length);
 	double avg = getAvg(RTTarr, RTTarr_length);
@@ -210,7 +179,8 @@ int main(int argc, char *argv[]) {
 		numTrnsmtd++;
 		free(newBuffer);
 
-		// timeout shit
+		// Timeout: got the timeout code from stackoverflow post: 
+		// https://stackoverflow.com/questions/16163260/setting-timeout-for-recv-fcn-of-a-udp-socket
 		fd.fd = sock;
 		fd.events = POLLIN;
 		res = poll(&fd,1,1000);  // 1000 ms timeout
