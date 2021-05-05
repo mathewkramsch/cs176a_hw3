@@ -121,8 +121,6 @@ double getMin(double arr[], int len) {
 } double getAvg(double arr[], int len) {
 	double avg = 0;
 	for(int i=0; i<len; i++) avg += arr[i];
-	printf("length: %i\n", len);
-	printf("total: %f\n", avg);
 	return avg/len;
 }
 
