@@ -98,15 +98,13 @@ double timeIntsToFloat(int time_sec, int time_ms) {
 char* getRTT(const char *buffer, int offset, int time_sec, int time_ms) {
 // PRECONDITION: time_sec and time_ms are the current times
 // POSTCONDITION: parses the sequence number from the buffer, returns as c-string
-// 		returns -1 if RTT > 1 second
 	char *pEnd;
 	char *RTT_arr = calloc(256, sizeof(char));
 	char *parsedSentTime = getTimeStamp(buffer,offset);
 	double sentTime = strtod(parsedSentTime, &pEnd);
 	double currentTime = timeIntsToFloat(time_sec, time_ms);
 	double RTT = (currentTime-sentTime)*1000;  // converts seconds to ms
-	if (RTT < 1) sprintf(RTT_arr, "%.3f", RTT);
-	else strcat(RTT_arr, "-1");
+	sprintf(RTT_arr, "%.3f", RTT);
 	return RTT_arr;
 }
 
