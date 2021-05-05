@@ -153,7 +153,7 @@ double getMin(double arr[], int len) {
 } double getAvg(double arr[], int len) {
 	double avg = arr[0];
 	for(int i=0; i<len; i++) avg += arr[i];
-	return avg/len+1;
+	return avg/(len+1);
 }
 
 void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd, const char *hostname) {
