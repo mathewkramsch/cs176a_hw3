@@ -21,7 +21,13 @@
  * 			Y is RTT in ms
  * no_response_mssg = "Request timeout for seq#=X"
  * 
-*/
+ */
+
+/* TODO
+ * implement min/max/avg calculations
+ * implement wait 1 sec btwn each ping
+ * implement drop packet error if RTT > 1sec 
+ */
 
 
 #include <sys/types.h>
@@ -35,6 +41,7 @@
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
+#include <stdbool.h>
 
 char* getPingMssg(int i, int time_sec, int time_ms) {
 // PRECONDITION: i is the sequence number of the ping segment
@@ -72,34 +79,98 @@ char* getTimeStamp(const char *buffer, int offset) {
 	return parsedTime;
 }
 
+double timeIntsToFloat(int time_sec, int time_ms) {
+// POSTCONDITION: returns time_sec.time_ms as a float
+	char *pEnd;
+	char *time_float_arr = calloc(256, sizeof(char));
+	char time_sec_arr[100];
+	char time_ms_arr[100];
+	sprintf(time_sec_arr, "%d", time_sec);
+	sprintf(time_ms_arr, "%d", time_ms);
+	strcat(time_float_arr, time_sec_arr);
+	strcat(time_float_arr, ".");
+	strcat(time_float_arr, time_ms_arr);
+	double time_float = strtod(time_float_arr, &pEnd);
+	free(time_float_arr);
+	return time_float;
+}
+
 char* getRTT(const char *buffer, int offset, int time_sec, int time_ms) {
 // PRECONDITION: time_sec and time_ms are the current times
 // POSTCONDITION: parses the sequence number from the buffer, returns as c-string
+// 		returns -1 if RTT > 1 second
+	char *pEnd;
 	char *RTT_arr = calloc(256, sizeof(char));
 	char *parsedSentTime = getTimeStamp(buffer,offset);
-	int sentTime_sec;
-	int sentTime_ms;
-	int RTT; // current time - time packet was sent
-	strcat(RTT_arr, parsedSentTime);
+	double sentTime = strtod(parsedSentTime, &pEnd);
+	double currentTime = timeIntsToFloat(time_sec, time_ms);
+	double RTT = (currentTime-sentTime)*1000;  // converts seconds to ms
+	if (RTT < 1) sprintf(RTT_arr, "%.3f", RTT);
+	else strcat(RTT_arr, "-1");
 	return RTT_arr;
 }
 
-char* gotResponseMssg(const char *buffer, const char *hostname, int time_sec, int time_ms) {
+char* responseMssg(const char *buffer, const char *hostname, int time_sec, int time_ms, double *RTTarr_at_i) {
 // PRECONDITION: buffer contains the Ping message: PING X Y\n, where X=seq_num, Y=RTT
 // 		hostname is the name of the host passed through argv[1]
 // POSTCONDITION: returns the client output message when ping received
 // 		"PING received from machine_name: seq#=X time=Y ms\n"
+// 		if RTT > 1 sec, prints timeout mssg
+//		adds the RTT to RTTarr
 	int offset = 0;  // if the sequence number is 10 (2 digits)
 	if (buffer[6]=='0') offset++;
 	char *mssg = calloc(256, sizeof(char));
-	strcat(mssg, "PING received from ");
-	strcat(mssg, hostname);
-	strcat(mssg, ": seq#=");
-	strncat(mssg, getSeqNum(buffer,offset), 1+offset);
-	strcat(mssg, " time=");
-	strncat(mssg, getRTT(buffer,offset,time_sec,time_ms), strlen(getRTT(buffer,offset,time_sec,time_ms)));
-	strcat(mssg, " ms\n");
+
+	// get sequence number
+	char *seq_num = calloc(256, sizeof(char));
+	strcat(seq_num, getSeqNum(buffer,offset));
+	
+	// get RTT
+	char *pEnd;
+	char *RTT = calloc(256, sizeof(char));
+	strcat(RTT, getRTT(buffer,offset,time_sec,time_ms));
+	*RTTarr_at_i = strtod(RTT, &pEnd);
+
+	// if RTT > 1 sec, getRTT returns -1, print error message
+	if (!strcmp(RTT,"-1")) {  // strcmp() returns 0(false) if RTT=="-1"
+		strcat(mssg, "Request timeout for seq#=");
+		strncat(mssg, seq_num, 1+offset);
+		strcat(mssg, "\n");
+	} else {  // if !timeout, print PING received ...
+		strcat(mssg, "PING received from ");
+		strcat(mssg, hostname);
+		strcat(mssg, ": seq#=");
+		strncat(mssg, seq_num, 1+offset);
+		strcat(mssg, " time=");
+		strncat(mssg, RTT, strlen(RTT));
+		strcat(mssg, " ms\n");
+	}
 	return mssg;
+}
+
+double getMin(double arr[], int len) {
+	double min = arr[0];
+	for(int i=0; i<len; i++)
+		if (arr[i] < min) min = arr[i];
+	return min;
+} double getMax(double arr[], int len) {
+	double max = arr[0];
+	for(int i=0; i<len; i++)
+		if (arr[i] > max) max = arr[i];
+	return max;
+} double getAvg(double arr[], int len) {
+	double avg = arr[0];
+	for(int i=0; i<len; i++) avg += arr[i];
+	return avg/len;
+}
+
+void printStats(double *RTTarr, int RTTarr_length) {
+	double min = getMin(RTTarr, RTTarr_length);
+	double max = getMax(RTTarr, RTTarr_length);
+	double avg = getAvg(RTTarr, RTTarr_length);
+	printf("Min: %.3f\n", min);
+	printf("Max: %.3f\n", max);
+	printf("Avg: %.3f\n", avg);
 }
 
 int main(int argc, char *argv[]) {
@@ -115,19 +186,25 @@ int main(int argc, char *argv[]) {
 	bcopy((char *)hp->h_addr, (char *)&server.sin_addr, hp->h_length);
 	server.sin_port = htons(atoi(argv[2]));
 	length=sizeof(struct sockaddr_in);
-	
+
+	// int array to hold RTTs
+	int RTTarr_length = 0;
+	double RTTarr[10];
+
 	for (int seq_num=1; seq_num<=10; seq_num++) {
 		char *newBuffer = calloc(256, sizeof(char));
 		struct timeval current_time;
 		struct timeval end;
 		gettimeofday(&current_time, NULL);
 		newBuffer = getPingMssg(seq_num,current_time.tv_sec,current_time.tv_usec);
-		printf("%s",newBuffer);
+		//printf("%s",newBuffer);
 		sendto(sock,newBuffer,strlen(newBuffer),0,(const struct sockaddr *)&server,length);
 		recvfrom(sock,buffer,256,0,(struct sockaddr *)&from, &length);  // read from socket
 		gettimeofday(&end, NULL);
-		printf("%s",gotResponseMssg(buffer, argv[1], end.tv_sec, end.tv_usec));
+		printf("%s",responseMssg(buffer, argv[1], end.tv_sec, end.tv_usec, RTTarr+RTTarr_length++));
+		free(newBuffer);
 	}
+	printStats(RTTarr, RTTarr_length);
 	
 	// CLOSE THE SOCKET
 	close(sock);
