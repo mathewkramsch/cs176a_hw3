@@ -164,13 +164,20 @@ double getMin(double arr[], int len) {
 	return avg/len;
 }
 
-void printStats(double *RTTarr, int RTTarr_length) {
+void printStats(double *RTTarr, int RTTarr_length, int numTrnsmtd, int numRcvd) {
 	double min = getMin(RTTarr, RTTarr_length);
 	double max = getMax(RTTarr, RTTarr_length);
 	double avg = getAvg(RTTarr, RTTarr_length);
-	printf("Min: %.3f\n", min);
-	printf("Max: %.3f\n", max);
-	printf("Avg: %.3f\n", avg);
+	printf("--- ping statistics ---\n");
+	printf("%i packets transmitted, ",numTrnsmtd);
+	printf("%i received, ",numRcvd);
+	float percentLoss = ((1-numRcvd)/numTrnsmtd)*100;
+	printf("%.1f%% packet loss ", percentLoss);
+	printf("rtt min/avg/max = ");
+	printf("%.3f ", min);
+	printf("%.3f ", avg);
+	printf("%.3f ", max);
+	printf("ms\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -187,9 +194,10 @@ int main(int argc, char *argv[]) {
 	server.sin_port = htons(atoi(argv[2]));
 	length=sizeof(struct sockaddr_in);
 
-	// int array to hold RTTs
 	int RTTarr_length = 0;
-	double RTTarr[10];
+	double RTTarr[10];  // int array to hold RTTs
+	int numTrnsmtd=0;
+	int	numRcvd=0;
 
 	for (int seq_num=1; seq_num<=10; seq_num++) {
 		char *newBuffer = calloc(256, sizeof(char));
@@ -197,14 +205,15 @@ int main(int argc, char *argv[]) {
 		struct timeval end;
 		gettimeofday(&current_time, NULL);
 		newBuffer = getPingMssg(seq_num,current_time.tv_sec,current_time.tv_usec);
-		//printf("%s",newBuffer);
 		sendto(sock,newBuffer,strlen(newBuffer),0,(const struct sockaddr *)&server,length);
+		numTrnsmtd++;
 		recvfrom(sock,buffer,256,0,(struct sockaddr *)&from, &length);  // read from socket
+		numRcvd++;
 		gettimeofday(&end, NULL);
 		printf("%s",responseMssg(buffer, argv[1], end.tv_sec, end.tv_usec, RTTarr+RTTarr_length++));
 		free(newBuffer);
 	}
-	printStats(RTTarr, RTTarr_length);
+	printStats(RTTarr, RTTarr_length, numTrnsmtd, numRcvd);
 	
 	// CLOSE THE SOCKET
 	close(sock);
